@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload de Artistas - Gerenciador de Músicas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(to right, #1e3a8a, #3b0764); /* Gradiente azul/roxo escuro */
+            color: #e5e7eb; /* gray-200 */
+        }
+        .container {
+            background-color: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+        }
+        input[type="file"]::file-selector-button {
+            margin-right: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            border-width: 0px;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            font-weight: 600;
+            background-color: #4f46e5; /* indigo-600 */
+            color: white;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background-color: #4338ca; /* indigo-700 */
+        }
+        input:focus, button:focus {
+            outline: 2px solid transparent;
+            outline-offset: 2px;
+            box-shadow: 0 0 0 2px #a78bfa; /* violet-400 */
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="container shadow-2xl rounded-xl p-6 md:p-10 w-full max-w-lg">
+        <h1 class="text-3xl md:text-4xl font-bold text-center text-gray-100 mb-8">Upload de CSV de Artista</h1>
+
+        <div class="space-y-6">
+            <div>
+                <label for="uploadArtistFileAdmin" class="block text-sm font-medium text-gray-300 mb-1">
+                    Selecionar arquivo CSV do artista:
+                </label>
+                <input type="file" id="uploadArtistFileAdmin" accept=".csv"
+                       class="block w-full text-sm text-gray-300 border border-gray-600 rounded-lg cursor-pointer focus:outline-none focus:border-indigo-500 p-3 bg-gray-700 placeholder-gray-400">
+                <p class="mt-1 text-xs text-gray-400">
+                    O nome do arquivo (sem ".csv") será o nome do artista. O CSV deve ter as colunas: <code>song_name,song_link</code>.
+                </p>
+            </div>
+
+            <button id="submitUploadBtn"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out">
+                Enviar Arquivo
+            </button>
+
+            <div id="uploadStatus" class="mt-4 text-sm text-center"></div>
+        </div>
+         <div class="mt-8 text-center">
+            <a href="/" class="text-indigo-400 hover:text-indigo-300 hover:underline">Voltar para a Playlist</a>
+        </div>
+    </div>
+
+    <script>
+        // Idealmente, mover este script para um arquivo JS separado e importá-lo (ex: src/js/upload-logic.js)
+        const uploadArtistFileInputAdmin = document.getElementById('uploadArtistFileAdmin');
+        const submitUploadBtn = document.getElementById('submitUploadBtn');
+        const uploadStatus = document.getElementById('uploadStatus');
+
+        submitUploadBtn.addEventListener('click', async () => {
+            const file = uploadArtistFileInputAdmin.files[0];
+            uploadStatus.textContent = ''; // Limpa status anterior
+
+            if (!file) {
+                uploadStatus.textContent = 'Por favor, selecione um arquivo.';
+                uploadStatus.className = 'mt-4 text-sm text-center text-red-400';
+                return;
+            }
+
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                uploadStatus.textContent = 'Por favor, selecione um arquivo .csv.';
+                uploadStatus.className = 'mt-4 text-sm text-center text-red-400';
+                uploadArtistFileInputAdmin.value = ''; // Limpa seleção
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('artistFile', file, file.name); // 'artistFile' deve corresponder ao nome no multer
+
+            uploadStatus.textContent = 'Enviando...';
+            uploadStatus.className = 'mt-4 text-sm text-center text-yellow-400';
+            submitUploadBtn.disabled = true;
+
+            try {
+                // A Vercel mapeia a pasta /api para as serverless functions.
+                // Se seu arquivo na api for server.js, o endpoint pode ser /api/server ou rotas definidas nele.
+                // Vamos assumir que as rotas definidas no server.js funcionarão a partir de /api/
+                const response = await fetch('/api/upload/artist', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.message || `Erro no upload: ${response.status}`);
+                }
+
+                uploadStatus.textContent = result.message || 'Artista adicionado com sucesso!';
+                uploadStatus.className = 'mt-4 text-sm text-center text-green-400';
+                uploadArtistFileInputAdmin.value = ''; // Limpa seleção após sucesso
+
+            } catch (error) {
+                console.error("Erro ao enviar arquivo CSV do artista:", error);
+                uploadStatus.textContent = `Erro: ${error.message}`;
+                uploadStatus.className = 'mt-4 text-sm text-center text-red-400';
+            } finally {
+                submitUploadBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
