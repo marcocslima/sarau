@@ -128,43 +128,53 @@
             }
         }
 
-        // Carrega músicas do artista selecionado do backend
         async function loadSongs(artistName) {
             songSelect.innerHTML = '<option value="">Carregando músicas...</option>';
             songSelectContainer.classList.add('hidden');
+            console.log(`Frontend: Carregando músicas para "${artistName}"`); // <<<< NOVO LOG
+
             if (!artistName) {
                 songSelect.innerHTML = '<option value="">Selecione uma música</option>';
+                console.log("Frontend: Nome do artista vazio, retornando."); // <<<< NOVO LOG
                 return;
             }
             try {
                 const response = await fetch(`/api/artists/${encodeURIComponent(artistName)}/songs`);
+                console.log(`Frontend: Resposta da API para músicas de "${artistName}":`, response.status, response.statusText); // <<<< NOVO LOG
+
                 if (!response.ok) {
-                     if(response.status === 404) {
+                    if(response.status === 404) {
                         songSelect.innerHTML = '<option value="">Nenhuma música encontrada</option>';
+                        console.warn(`Frontend: Nenhuma música encontrada para ${artistName} no servidor (404).`); // <<<< NOVO LOG
                         songSelectContainer.classList.remove('hidden');
                         return;
-                     }
+                    }
                     throw new Error(`Erro HTTP: ${response.status}`);
                 }
                 const songsData = await response.json();
+                console.log(`Frontend: Dados das músicas recebidos para "${artistName}":`, songsData); // <<<< NOVO LOG
+
                 songSelect.innerHTML = '<option value="">Selecione uma música</option>';
                 if (songsData && songsData.length > 0) {
                     songsData.forEach(song => {
-                        if (song.song_name && song.song_link) {
+                        if (song.name && song.link) { // VERIFIQUE SE ESTÁ USANDO song.name AQUI
                             const option = document.createElement('option');
-                            option.value = song.song_name;
-                            option.dataset.link = song.song_link;
-                            option.textContent = song.song_name;
+                            option.value = song.name; // E AQUI
+                            option.dataset.link = song.link;
+                            option.textContent = song.name; // E AQUI
                             songSelect.appendChild(option);
+                        } else {
+                            console.warn("Frontend: Objeto de música inválido recebido:", song); // <<<< NOVO LOG
                         }
                     });
                     songSelectContainer.classList.remove('hidden');
                 } else {
                     songSelect.innerHTML = '<option value="">Nenhuma música encontrada</option>';
+                    console.log(`Frontend: Array de músicas vazio para "${artistName}".`); // <<<< NOVO LOG
                     songSelectContainer.classList.remove('hidden');
                 }
             } catch (error) {
-                console.error(`Falha ao carregar músicas para ${artistName}:`, error);
+                console.error(`Frontend: Falha ao carregar músicas para ${artistName}:`, error); // <<<< LOG DE ERRO JÁ EXISTENTE
                 songSelect.innerHTML = '<option value="">Erro ao carregar músicas</option>';
                 songSelectContainer.classList.remove('hidden');
             }

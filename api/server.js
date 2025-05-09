@@ -1,209 +1,213 @@
 // api/server.js
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
+const { Pool } = require('pg'); // Driver do PostgreSQL
+require('dotenv').config(); // Para carregar variáveis do .env em desenvolvimento
 
 const app = express();
 
-// --- Configurações ---
-// Na Vercel, o diretório gravável é /tmp. Os dados não serão persistentes entre deploys
-// ou após a função serverless "esfriar", a menos que você use um armazenamento externo.
-// Para CSVs que precisam ser persistentes, você precisaria de um banco de dados ou um serviço de storage (S3, etc.)
-// Por simplicidade, vamos continuar usando o sistema de arquivos, mas ciente desta limitação na Vercel.
-const IS_VERCEL = !!process.env.VERCEL_URL;
-const UPLOAD_DIR_NAME = 'data_managed_by_api'; // Um nome de pasta
-const UPLOAD_DIR = IS_VERCEL ? path.join('/tmp', UPLOAD_DIR_NAME) : path.join(__dirname, '..', UPLOAD_DIR_NAME);
-const ARTISTS_LIST_FILE = path.join(UPLOAD_DIR, '_artists_list.csv');
-
-// --- Middleware ---
-app.use(cors()); // Permite requisições de qualquer origem (ajuste para produção se necessário)
-app.use(express.json());
-
-// --- Configuração do Multer para Upload ---
-const ensureUploadDirExists = async () => {
-    try {
-        await fs.access(UPLOAD_DIR);
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            await fs.mkdir(UPLOAD_DIR, { recursive: true });
-            console.log(`Diretório de dados/upload criado: ${UPLOAD_DIR}`);
-             // Se for a primeira vez e o arquivo de lista não existe, crie-o com cabeçalho
-            try {
-                await fs.access(ARTISTS_LIST_FILE);
-            } catch (listFileError) {
-                if (listFileError.code === 'ENOENT') {
-                    await fs.writeFile(ARTISTS_LIST_FILE, "artist_name\n", 'utf-8');
-                    console.log(`Arquivo ${ARTISTS_LIST_FILE} inicializado.`);
-                }
-            }
-        } else {
-            throw error;
-        }
-    }
-};
-
-const storage = multer.diskStorage({
-    destination: async (req, file, cb) => {
-        await ensureUploadDirExists();
-        cb(null, UPLOAD_DIR);
-    },
-    filename: (req, file, cb) => {
-        cb(null, file.originalname);
-    }
+// --- Configuração do Pool de Conexão com o PostgreSQL ---
+// A Vercel injeta automaticamente as variáveis de ambiente para o banco de dados.
+// Para desenvolvimento local, elas virão do .env
+const pool = new Pool({
+    connectionString: process.env.POSTGRES_URL, // Usado pela Vercel e pelo dotenv
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false, // Necessário para conexões SSL (comum em produção)
 });
 
+// Teste de conexão (opcional, mas bom para depuração)
+pool.connect((err, client, release) => {
+    if (err) {
+        return console.error('Erro ao adquirir cliente do pool de conexão', err.stack);
+    }
+    client.query('SELECT NOW()', (err, result) => {
+        release(); // Libera o cliente de volta ao pool
+        if (err) {
+            return console.error('Erro ao executar query de teste', err.stack);
+        }
+        console.log('Conectado ao PostgreSQL! Hora atual do banco:', result.rows[0].now);
+    });
+});
+
+
+// --- Middleware ---
+app.use(cors());
+app.use(express.json());
+
+// --- Configuração do Multer para Upload (em memória, pois vamos processar e inserir no DB) ---
+const storage = multer.memoryStorage(); // Armazena o arquivo na memória como um Buffer
 const upload = multer({
     storage: storage,
     fileFilter: (req, file, cb) => {
-        if (path.extname(file.originalname).toLowerCase() !== '.csv') {
+        if (file.mimetype !== 'text/csv' && path.extname(file.originalname).toLowerCase() !== '.csv') {
             return cb(new Error('Apenas arquivos .csv são permitidos!'), false);
         }
         cb(null, true);
     }
 });
 
-// --- Funções Auxiliares (parseCSV, updateArtistsList) ---
-// Cole as funções parseCSV e updateArtistsList da resposta anterior aqui.
-// Certifique-se que elas usam as constantes UPLOAD_DIR e ARTISTS_LIST_FILE corretas.
-async function parseCSV(filePath, expectedHeaders = null) {
-    try {
-        await fs.access(filePath);
-        const csvText = await fs.readFile(filePath, 'utf-8');
-        const lines = csvText.trim().split('\n');
-        if (lines.length === 0) return [];
+// --- Funções Auxiliares de Banco de Dados ---
 
-        let headers;
-        let dataStartIndex = 0;
+// Parseia o conteúdo do CSV (recebe um Buffer ou string)
+function parseCSVContent(csvContentString, expectedHeaders = null) {
+    const lines = csvContentString.trim().split(/\r?\n/); // Lida com \n e \r\n
+    if (lines.length === 0) return [];
 
-        const firstLineValues = lines[0].split(',').map(h => h.trim());
+    let headers;
+    let dataStartIndex = 0;
+    const firstLineValues = lines[0].split(',').map(h => h.trim());
 
-        if (expectedHeaders && lines.length > 0 && expectedHeaders.every((eh, i) => eh === firstLineValues[i])) {
-            headers = expectedHeaders;
-            dataStartIndex = 1;
-        } else if (lines.length > 0 && (firstLineValues.includes('song_name') || firstLineValues.includes('artist_name'))) { // Heurística
-            headers = firstLineValues;
-            dataStartIndex = 1;
-        } else if (expectedHeaders) {
-            headers = expectedHeaders;
-            dataStartIndex = 0; // Assume que não há header no arquivo se não corresponder
-        } else { // Sem headers esperados e sem heurística, adivinha pelo número de colunas
-             if (firstLineValues.length === 2) headers = ['song_name', 'song_link']; // Default para músicas
-             else if (firstLineValues.length === 1) headers = ['artist_name']; // Default para lista de artistas
-             else return [];
-             dataStartIndex = 0;
-        }
-
-        const data = [];
-        for (let i = dataStartIndex; i < lines.length; i++) {
-            if (lines[i].trim() === "") continue;
-            const values = lines[i].split(',').map(v => v.trim());
-            const entry = {};
-            headers.forEach((header, index) => {
-                entry[header] = values[index];
-            });
-            data.push(entry);
-        }
-        return data;
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            console.warn(`Arquivo não encontrado ao parsear CSV: ${filePath}`);
-            return [];
-        }
-        console.error(`Erro ao parsear CSV ${filePath}:`, error);
-        throw error;
-    }
-}
-
-async function updateArtistsList(newArtistName) {
-    await ensureUploadDirExists();
-    let artists = [];
-    try {
-        const existingArtistsData = await parseCSV(ARTISTS_LIST_FILE, ['artist_name']);
-        artists = existingArtistsData.map(a => a.artist_name).filter(name => name && name.trim() !== ""); // Filtra vazios
-    } catch (error) {
-        console.warn("Não foi possível ler a lista de artistas existente, começando uma nova:", error.message);
+    if (expectedHeaders && lines.length > 0 && expectedHeaders.every((eh, i) => eh === firstLineValues[i])) {
+        headers = expectedHeaders;
+        dataStartIndex = 1;
+    } else if (lines.length > 0 && (firstLineValues.includes('song_name') || firstLineValues.includes('artist_name'))) {
+        headers = firstLineValues;
+        dataStartIndex = 1;
+    } else if (expectedHeaders) {
+        headers = expectedHeaders;
+        dataStartIndex = 0;
+    } else {
+         if (firstLineValues.length === 2) headers = ['song_name', 'song_link'];
+         else if (firstLineValues.length === 1) headers = ['artist_name'];
+         else return [];
+         dataStartIndex = 0;
     }
 
-    if (newArtistName && newArtistName.trim() !== "" && !artists.includes(newArtistName)) {
-        artists.push(newArtistName);
-        artists.sort();
-        const csvContent = "artist_name\n" + artists.join("\n");
-        await fs.writeFile(ARTISTS_LIST_FILE, csvContent + "\n", 'utf-8'); // Adiciona newline no final
-        console.log(`Artista "${newArtistName}" adicionado a ${ARTISTS_LIST_FILE}`);
+    const data = [];
+    for (let i = dataStartIndex; i < lines.length; i++) {
+        if (lines[i].trim() === "") continue;
+        const values = lines[i].split(',').map(v => v.trim());
+        const entry = {};
+        headers.forEach((header, index) => {
+            entry[header] = values[index];
+        });
+        data.push(entry);
     }
+    return data;
 }
 
 
 // --- Rotas da API ---
+
 // GET: Listar todos os artistas
 app.get('/api/artists', async (req, res) => {
     try {
-        await ensureUploadDirExists(); // Garante que o diretório/arquivo exista
-        const artistsData = await parseCSV(ARTISTS_LIST_FILE, ['artist_name']);
-        const artistNames = artistsData.map(a => a.artist_name).filter(name => name && name.trim() !== "");
-        res.json(artistNames);
+        const result = await pool.query('SELECT name FROM artists ORDER BY name ASC');
+        res.json(result.rows.map(row => row.name));
     } catch (error) {
-        console.error("Erro ao listar artistas:", error);
-        res.status(500).send("Erro ao buscar lista de artistas.");
+        console.error("Erro ao listar artistas do DB:", error);
+        res.status(500).json({ message: "Erro ao buscar lista de artistas." });
     }
 });
 
 // GET: Listar músicas de um artista
 app.get('/api/artists/:artistName/songs', async (req, res) => {
     const artistName = req.params.artistName;
-    if (!artistName || typeof artistName !== 'string' || artistName.includes('..')) {
-        return res.status(400).send("Nome de artista inválido.");
-    }
-    const artistFilePath = path.join(UPLOAD_DIR, `${artistName}.csv`);
+    console.log(`Buscando músicas para o artista: "${artistName}"`);
+
     try {
-        await ensureUploadDirExists();
-        const songsData = await parseCSV(artistFilePath, ['song_name', 'song_link']);
-        res.json(songsData);
-    } catch (error) {
-        console.error(`Erro ao buscar músicas para ${artistName}:`, error);
-        if (error.code === 'ENOENT') {
-             return res.status(404).json({ message: `Arquivo de músicas para o artista ${artistName} não encontrado.` });
+        const result = await pool.query(
+            `SELECT s.name, s.link FROM songs s
+             JOIN artists a ON s.artist_id = a.id
+             WHERE a.name = $1
+             ORDER BY s.name ASC`,
+            [artistName]
+        );
+        console.log(`Músicas encontradas para "${artistName}":`, result.rows);
+
+        if (result.rows.length === 0) {
+            console.log(`Nenhuma música encontrada no DB para "${artistName}" com a query.`);
         }
-        res.status(500).send(`Erro ao buscar músicas para ${artistName}.`);
+        res.json(result.rows);
+    } catch (error) {
+        console.error(`Erro ao buscar músicas para ${artistName} do DB:`, error);
+        res.status(500).json({ message: `Erro ao buscar músicas para ${artistName}.` });
     }
 });
 
-// POST: Upload de arquivo CSV de um artista
+// POST: Upload de arquivo CSV de um artista e suas músicas
 app.post('/api/upload/artist', upload.single('artistFile'), async (req, res) => {
     if (!req.file) {
-        return res.status(400).json({ message: 'Nenhum arquivo foi enviado.'});
+        return res.status(400).json({ message: 'Nenhum arquivo foi enviado.' });
     }
+
+    const client = await pool.connect(); // Pega uma conexão do pool
     try {
-        const artistName = path.basename(req.file.originalname, '.csv').trim();
-        if (!artistName) {
-            await fs.unlink(req.file.path);
+        const artistNameFromFile = path.basename(req.file.originalname, '.csv').trim();
+        if (!artistNameFromFile) {
             return res.status(400).json({ message: 'Nome de arquivo inválido para determinar o nome do artista.' });
         }
-        await updateArtistsList(artistName);
-        res.status(201).json({
-            message: `Arquivo ${req.file.originalname} enviado com sucesso. Artista "${artistName}" adicionado/atualizado.`,
-            artistName: artistName
-        });
-    } catch (error) {
-        console.error("Erro no upload do artista:", error);
-        if (req.file && req.file.path) {
-            try { await fs.unlink(req.file.path); } catch (e) { console.error("Erro ao limpar arquivo:", e); }
+
+        const csvContentString = req.file.buffer.toString('utf-8');
+        const songsFromCSV = parseCSVContent(csvContentString, ['song_name', 'song_link']);
+
+        if (songsFromCSV.length === 0) {
+            return res.status(400).json({ message: 'CSV vazio ou em formato inválido (esperado: song_name,song_link).' });
         }
-        res.status(500).json({ message: 'Erro ao processar o upload do artista.' });
+
+        await client.query('BEGIN'); // Inicia uma transação
+
+        // 1. Encontrar ou criar o artista
+        let artistResult = await client.query('SELECT id FROM artists WHERE name = $1', [artistNameFromFile]);
+        let artistId;
+
+        if (artistResult.rows.length > 0) {
+            artistId = artistResult.rows[0].id;
+            // Opcional: Excluir músicas antigas deste artista se for um re-upload completo
+            // await client.query('DELETE FROM songs WHERE artist_id = $1', [artistId]);
+            // console.log(`Músicas antigas do artista ${artistNameFromFile} (ID: ${artistId}) excluídas para re-upload.`);
+        } else {
+            artistResult = await client.query(
+                'INSERT INTO artists (name) VALUES ($1) RETURNING id',
+                [artistNameFromFile]
+            );
+            artistId = artistResult.rows[0].id;
+        }
+
+        // 2. Inserir as músicas, lidando com duplicatas (nome da música para o mesmo artista)
+        let songsAddedCount = 0;
+        for (const song of songsFromCSV) {
+            if (song.song_name && song.link) {
+                try {
+                    // Tenta inserir. Se a constraint UNIQUE (artist_id, name) falhar, ignora.
+                    // ON CONFLICT (artist_id, name) DO NOTHING; -- ou DO UPDATE SET link = EXCLUDED.link;
+                    await client.query(
+                        `INSERT INTO songs (artist_id, name, link) VALUES ($1, $2, $3)
+                         ON CONFLICT (artist_id, name) DO UPDATE SET link = EXCLUDED.link`,
+                        [artistId, song.song_name, song.link]
+                    );
+                    songsAddedCount++;
+                } catch (insertError) {
+                    // Se não for um erro de violação de constraint UNIQUE, ou se você não usar ON CONFLICT
+                    console.error(`Erro ao inserir música "${song.song_name}":`, insertError.message);
+                    // Você pode decidir se quer continuar ou abortar a transação
+                }
+            }
+        }
+
+        await client.query('COMMIT'); // Finaliza a transação
+
+        res.status(201).json({
+            message: `Artista "${artistNameFromFile}" processado. ${songsAddedCount} músicas adicionadas/atualizadas.`,
+            artistName: artistNameFromFile
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK'); // Desfaz a transação em caso de erro
+        console.error("Erro no processamento do upload do artista e inserção no DB:", error);
+        res.status(500).json({ message: 'Erro ao processar o upload e salvar no banco de dados.' });
+    } finally {
+        client.release(); // Libera a conexão de volta ao pool
     }
 });
 
 
-// Se não estiver na Vercel e quiser rodar localmente com `node api/server.js`
-if (!IS_VERCEL) {
+// Exporta o app para a Vercel usar
+// Se você quiser rodar localmente com `node api/server.js` (sem `vercel dev`):
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL_URL) {
     const PORT = process.env.PORT || 3001;
-    (async () => {
-        await ensureUploadDirExists();
-        app.listen(PORT, () => console.log(`Servidor local rodando na porta ${PORT}. Dados em ${UPLOAD_DIR}`));
-    })();
+    app.listen(PORT, () => console.log(`Servidor local (API) rodando na porta ${PORT}`));
 }
 
-// Exporta o app para a Vercel usar
 module.exports = app;
