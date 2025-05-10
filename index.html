@@ -1,256 +1,344 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciador de Músicas</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(to right, #6d28d9, #4f46e5);
-        }
-        .playlist-scroll::-webkit-scrollbar { width: 8px; }
-        .playlist-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-        .playlist-scroll::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
-        .playlist-scroll::-webkit-scrollbar-thumb:hover { background: #555; }
-        ::placeholder { color: #9ca3af; opacity: 1; }
-        select:focus, input:focus {
-            outline: 2px solid transparent;
-            outline-offset: 2px;
-            box-shadow: 0 0 0 2px #a78bfa;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerenciador de Músicas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(to right, #6d28d9, #4f46e5);
+    }
+
+    .playlist-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .playlist-scroll::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+
+    .playlist-scroll::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 10px;
+    }
+
+    .playlist-scroll::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+
+    ::placeholder {
+      color: #9ca3af;
+      opacity: 1;
+    }
+
+    select:focus,
+    input:focus {
+      outline: 2px solid transparent;
+      outline-offset: 2px;
+      box-shadow: 0 0 0 2px #a78bfa;
+    }
+  </style>
 </head>
+
 <body class="min-h-screen flex flex-col items-center justify-center p-4">
 
-    <div class="bg-white shadow-2xl rounded-xl p-6 md:p-10 w-full max-w-2xl">
-        <h1 class="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-8">Gerenciador de Músicas</h1>
+  <div class="bg-white shadow-2xl rounded-xl p-6 md:p-10 w-full max-w-2xl">
+    <h1 class="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-8">Gerenciador de Músicas</h1>
 
-        <!-- Seção de Upload REMOVIDA daqui -->
+    <div class="space-y-6 mb-8">
+      <div>
+        <label for="userName" class="block text-sm font-medium text-gray-700 mb-1">Seu Nome</label>
+        <input type="text" id="userName" name="userName" placeholder="Digite seu nome"
+          class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+      </div>
 
-        <div class="space-y-6 mb-8">
-            <div>
-                <label for="userName" class="block text-sm font-medium text-gray-700 mb-1">Seu Nome</label>
-                <input type="text" id="userName" name="userName" placeholder="Digite seu nome"
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
-            </div>
+      <div>
+        <label for="artistSelect" class="block text-sm font-medium text-gray-700 mb-1">Artista</label>
+        <select id="artistSelect" name="artistSelect"
+          class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+          <option value="">Selecione um artista</option>
+        </select>
+      </div>
 
-            <div>
-                <label for="artistSelect" class="block text-sm font-medium text-gray-700 mb-1">Artista</label>
-                <select id="artistSelect" name="artistSelect"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
-                    <option value="">Selecione um artista</option>
-                </select>
-            </div>
+      <div id="songSelectContainer" class="hidden">
+        <label for="songSelect" class="block text-sm font-medium text-gray-700 mb-1">Música</label>
+        <select id="songSelect" name="songSelect"
+          class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+          <option value="">Selecione uma música</option>
+        </select>
+      </div>
 
-            <div id="songSelectContainer" class="hidden">
-                <label for="songSelect" class="block text-sm font-medium text-gray-700 mb-1">Música</label>
-                <select id="songSelect" name="songSelect"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
-                    <option value="">Selecione uma música</option>
-                </select>
-            </div>
-
-            <button id="addToPlaylistBtn"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out">
-                Adicionar à Playlist
-            </button>
-        </div>
-
-        <div>
-            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Playlist</h2>
-            <div id="playlistDisplay" class="bg-gray-50 p-4 rounded-lg min-h-[150px] max-h-[300px] overflow-y-auto playlist-scroll space-y-3">
-                <p id="emptyPlaylistMsg" class="text-gray-500">Nenhuma música adicionada ainda.</p>
-            </div>
-            <button id="clearPlaylistBtn"
-                    class="mt-6 w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition duration-150 ease-in-out">
-                Limpar Playlist
-            </button>
-        </div>
-        <div class="mt-8 text-center text-xs text-gray-500">
-            <a href="/upload.html" class="hover:underline">Página de Upload (Admin)</a>
-        </div>
+      <button id="addToPlaylistBtn"
+        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out">
+        Adicionar à Playlist
+      </button>
     </div>
 
-    <template id="playlistItemTemplate">
-        <!-- ... (template como antes) ... -->
-         <div class="playlist-item flex items-center justify-between bg-white p-3 rounded-md shadow hover:shadow-lg transition-shadow duration-150">
-            <div>
-                <p class="song-title font-semibold text-indigo-700 cursor-pointer hover:underline"></p>
-                <p class="added-by text-xs text-gray-500"></p>
-            </div>
-            <button class="delete-song-btn text-red-500 hover:text-red-700 transition-colors duration-150" aria-label="Excluir música">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                </svg>
-            </button>
-        </div>
-    </template>
+    <div>
+      <h2 class="text-2xl font-semibold text-gray-800 mb-4">Playlist</h2>
+      <div id="playlistDisplay"
+        class="bg-gray-50 p-4 rounded-lg min-h-[150px] max-h-[300px] overflow-y-auto playlist-scroll space-y-3">
+        <p id="emptyPlaylistMsg" class="text-gray-500">Nenhuma música adicionada ainda.</p>
+      </div>
+      <button id="clearPlaylistBtn"
+        class="mt-6 w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition duration-150 ease-in-out">
+        Limpar Playlist
+      </button>
+    </div>
+    <div class="mt-8 text-center text-xs text-gray-500">
+      <a href="/upload.html" class="hover:underline">Página de Upload (Admin)</a>
+    </div>
+  </div>
 
-    <script>
-        // Elementos do DOM
-        const userNameInput = document.getElementById('userName');
-        const artistSelect = document.getElementById('artistSelect');
-        const songSelectContainer = document.getElementById('songSelectContainer');
-        const songSelect = document.getElementById('songSelect');
-        const addToPlaylistBtn = document.getElementById('addToPlaylistBtn');
-        const playlistDisplay = document.getElementById('playlistDisplay');
-        const emptyPlaylistMsg = document.getElementById('emptyPlaylistMsg');
-        const clearPlaylistBtn = document.getElementById('clearPlaylistBtn');
-        const playlistItemTemplate = document.getElementById('playlistItemTemplate');
-        // uploadArtistFileInput REMOVIDO
+  <template id="playlistItemTemplate">
+    <div
+      class="playlist-item flex items-center justify-between bg-white p-3 rounded-md shadow hover:shadow-lg transition-shadow duration-150"
+      data-playlist-item-id="">
+      <div>
+        <p class="song-title font-semibold text-indigo-700 cursor-pointer hover:underline"></p>
+        <p class="added-by text-xs text-gray-500"></p>
+      </div>
+      <button class="delete-song-btn text-red-500 hover:text-red-700 transition-colors duration-150"
+        aria-label="Excluir música">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd"
+            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+            clip-rule="evenodd" />
+        </svg>
+      </button>
+    </div>
+  </template>
 
-        let playlist = [];
+  <script>
+    // Elementos do DOM
+    const userNameInput = document.getElementById('userName');
+    const artistSelect = document.getElementById('artistSelect');
+    const songSelectContainer = document.getElementById('songSelectContainer');
+    const songSelect = document.getElementById('songSelect');
+    const addToPlaylistBtn = document.getElementById('addToPlaylistBtn');
+    const playlistDisplay = document.getElementById('playlistDisplay');
+    const emptyPlaylistMsg = document.getElementById('emptyPlaylistMsg'); // Já existe no HTML
+    const clearPlaylistBtn = document.getElementById('clearPlaylistBtn');
+    const playlistItemTemplate = document.getElementById('playlistItemTemplate');
 
-        // Carrega artistas do backend e popula o select
-        async function loadAndPopulateArtists() {
-            artistSelect.innerHTML = '<option value="">Carregando artistas...</option>';
-            try {
-                const response = await fetch('/api/artists');
-                if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
-                const artistNames = await response.json();
-                artistSelect.innerHTML = '<option value="">Selecione um artista</option>';
-                if (artistNames && artistNames.length > 0) {
-                    artistNames.sort().forEach(artistName => {
-                        const option = document.createElement('option');
-                        option.value = artistName;
-                        option.textContent = artistName;
-                        artistSelect.appendChild(option);
-                    });
-                } else {
-                     artistSelect.innerHTML = '<option value="">Nenhum artista encontrado</option>';
-                }
-            } catch (error) {
-                console.error("Falha ao carregar artistas:", error);
-                artistSelect.innerHTML = '<option value="">Erro ao carregar artistas</option>';
+    // Carrega artistas do backend e popula o select
+    async function loadAndPopulateArtists() {
+      artistSelect.innerHTML = '<option value="">Carregando artistas...</option>';
+      try {
+        const response = await fetch('/api/artists');
+        if (!response.ok) throw new Error(`Erro HTTP ao buscar artistas: ${response.status}`);
+        const artistNames = await response.json();
+        artistSelect.innerHTML = '<option value="">Selecione um artista</option>';
+        if (artistNames && artistNames.length > 0) {
+          artistNames.sort().forEach(artistName => {
+            const option = document.createElement('option');
+            option.value = artistName;
+            option.textContent = artistName;
+            artistSelect.appendChild(option);
+          });
+        } else {
+          artistSelect.innerHTML = '<option value="">Nenhum artista encontrado</option>';
+        }
+      } catch (error) {
+        console.error("Falha ao carregar artistas:", error);
+        artistSelect.innerHTML = '<option value="">Erro ao carregar artistas</option>';
+      }
+    }
+
+    // Carrega músicas do artista selecionado do backend
+    async function loadSongs(artistName) {
+      songSelect.innerHTML = '<option value="">Carregando músicas...</option>';
+      songSelectContainer.classList.add('hidden');
+
+      if (!artistName) {
+        songSelect.innerHTML = '<option value="">Selecione uma música</option>';
+        return;
+      }
+      try {
+        const response = await fetch(`/api/artists/${encodeURIComponent(artistName)}/songs`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            songSelect.innerHTML = '<option value="">Nenhuma música encontrada</option>';
+            songSelectContainer.classList.remove('hidden');
+            return;
+          }
+          throw new Error(`Erro HTTP ao buscar músicas: ${response.status}`);
+        }
+        const songsData = await response.json(); // Espera array de {id, name, link}
+        songSelect.innerHTML = '<option value="">Selecione uma música</option>';
+
+        if (songsData && songsData.length > 0) {
+          songsData.forEach(song => {
+            if (song.id && song.name && song.link) {
+              const option = document.createElement('option');
+              option.value = song.name; // O valor pode ser o nome para exibição
+              option.dataset.songId = song.id; // ARMAZENA O ID DA MÚSICA
+              option.dataset.link = song.link;
+              option.textContent = song.name;
+              songSelect.appendChild(option);
             }
+          });
+          songSelectContainer.classList.remove('hidden');
+        } else {
+          songSelect.innerHTML = '<option value="">Nenhuma música encontrada</option>';
+          songSelectContainer.classList.remove('hidden');
         }
+      } catch (error) {
+        console.error(`Falha ao carregar músicas para ${artistName}:`, error);
+        songSelect.innerHTML = '<option value="">Erro ao carregar músicas</option>';
+        songSelectContainer.classList.remove('hidden');
+      }
+    }
 
-        async function loadSongs(artistName) {
-            songSelect.innerHTML = '<option value="">Carregando músicas...</option>';
-            songSelectContainer.classList.add('hidden');
-            console.log(`Frontend: Carregando músicas para "${artistName}"`); // <<<< NOVO LOG
+    // --- FUNÇÕES PARA PLAYLIST DO BACKEND ---
 
-            if (!artistName) {
-                songSelect.innerHTML = '<option value="">Selecione uma música</option>';
-                console.log("Frontend: Nome do artista vazio, retornando."); // <<<< NOVO LOG
-                return;
-            }
-            try {
-                const response = await fetch(`/api/artists/${encodeURIComponent(artistName)}/songs`);
-                console.log(`Frontend: Resposta da API para músicas de "${artistName}":`, response.status, response.statusText); // <<<< NOVO LOG
+    async function fetchPlaylist() {
+      try {
+        const response = await fetch('/api/playlist');
+        if (!response.ok) {
+          throw new Error(`Erro ao buscar playlist: ${response.statusText}`);
+        }
+        const playlistData = await response.json();
+        renderPlaylist(playlistData);
+      } catch (error) {
+        console.error("Falha ao carregar playlist do backend:", error);
+        playlistDisplay.innerHTML = ''; // Limpa itens antigos
+        const errorP = document.createElement('p');
+        errorP.className = 'text-red-500';
+        errorP.textContent = 'Erro ao carregar a playlist.';
+        playlistDisplay.appendChild(errorP);
+        emptyPlaylistMsg.classList.add('hidden'); // Esconde a msg de 'vazio' se há erro
+      }
+    }
 
-                if (!response.ok) {
-                    if(response.status === 404) {
-                        songSelect.innerHTML = '<option value="">Nenhuma música encontrada</option>';
-                        console.warn(`Frontend: Nenhuma música encontrada para ${artistName} no servidor (404).`); // <<<< NOVO LOG
-                        songSelectContainer.classList.remove('hidden');
-                        return;
-                    }
-                    throw new Error(`Erro HTTP: ${response.status}`);
-                }
-                const songsData = await response.json();
-                console.log(`Frontend: Dados das músicas recebidos para "${artistName}":`, songsData); // <<<< NOVO LOG
+    function renderPlaylist(currentPlaylistData) {
+      // Limpa apenas os itens de música, mantém a mensagem de vazio se existir
+      const currentSongItems = playlistDisplay.querySelectorAll('.playlist-item');
+      currentSongItems.forEach(item => item.remove());
 
-                songSelect.innerHTML = '<option value="">Selecione uma música</option>';
-                if (songsData && songsData.length > 0) {
-                    songsData.forEach(song => {
-                        if (song.name && song.link) { // VERIFIQUE SE ESTÁ USANDO song.name AQUI
-                            const option = document.createElement('option');
-                            option.value = song.name; // E AQUI
-                            option.dataset.link = song.link;
-                            option.textContent = song.name; // E AQUI
-                            songSelect.appendChild(option);
-                        } else {
-                            console.warn("Frontend: Objeto de música inválido recebido:", song); // <<<< NOVO LOG
-                        }
-                    });
-                    songSelectContainer.classList.remove('hidden');
-                } else {
-                    songSelect.innerHTML = '<option value="">Nenhuma música encontrada</option>';
-                    console.log(`Frontend: Array de músicas vazio para "${artistName}".`); // <<<< NOVO LOG
-                    songSelectContainer.classList.remove('hidden');
-                }
-            } catch (error) {
-                console.error(`Frontend: Falha ao carregar músicas para ${artistName}:`, error); // <<<< LOG DE ERRO JÁ EXISTENTE
-                songSelect.innerHTML = '<option value="">Erro ao carregar músicas</option>';
-                songSelectContainer.classList.remove('hidden');
-            }
-        }
+      if (!currentPlaylistData || currentPlaylistData.length === 0) {
+        emptyPlaylistMsg.classList.remove('hidden');
+      } else {
+        emptyPlaylistMsg.classList.add('hidden');
+        currentPlaylistData.forEach(songItem => {
+          const templateClone = playlistItemTemplate.content.cloneNode(true);
+          const playlistItemDiv = templateClone.querySelector('.playlist-item');
+          playlistItemDiv.dataset.playlistItemId = songItem.id; // ID do item na playlist_items
 
-        // Funções da playlist (renderPlaylist, handleAddSongToPlaylist, handleDeleteSong, handleClearPlaylist, savePlaylistToLocalStorage, loadPlaylistFromLocalStorage)
-        // permanecem as mesmas. Cole-as aqui.
-        function renderPlaylist() {
-            const currentSongItems = playlistDisplay.querySelectorAll('.playlist-item');
-            currentSongItems.forEach(item => item.remove());
-            if (!emptyPlaylistMsg) { console.error("ERRO: emptyPlaylistMsg não encontrado!"); return; }
-            if (playlist.length === 0) {
-                emptyPlaylistMsg.classList.remove('hidden');
-            } else {
-                emptyPlaylistMsg.classList.add('hidden');
-                playlist.forEach(songItem => {
-                    const templateClone = playlistItemTemplate.content.cloneNode(true);
-                    const songTitleEl = templateClone.querySelector('.song-title');
-                    songTitleEl.textContent = `${songItem.songName} (${songItem.artistName})`;
-                    songTitleEl.dataset.link = songItem.link;
-                    songTitleEl.addEventListener('click', () => { window.open(songItem.link, '_blank'); });
-                    templateClone.querySelector('.added-by').textContent = `Adicionada por: ${songItem.userName}`;
-                    const deleteBtn = templateClone.querySelector('.delete-song-btn');
-                    deleteBtn.dataset.songId = songItem.id;
-                    deleteBtn.addEventListener('click', () => handleDeleteSong(songItem.id));
-                    playlistDisplay.appendChild(templateClone);
-                });
-            }
-        }
-        function handleAddSongToPlaylist() {
-            const userName = userNameInput.value.trim();
-            const artistName = artistSelect.value;
-            const selectedSongOption = songSelect.options[songSelect.selectedIndex];
-            const songName = selectedSongOption.value;
-            const songLink = selectedSongOption.dataset.link;
-            if (!userName) { alert('Por favor, digite seu nome.'); userNameInput.focus(); return; }
-            if (!artistName) { alert('Por favor, selecione um artista.'); artistSelect.focus(); return; }
-            if (!songName || !songLink) { alert('Por favor, selecione uma música válida.'); songSelect.focus(); return; }
-            const newSong = { id: Date.now().toString(), userName, artistName, songName, link: songLink };
-            playlist.push(newSong);
-            savePlaylistToLocalStorage();
-            renderPlaylist();
-        }
-        function handleDeleteSong(songId) {
-            playlist = playlist.filter(song => song.id !== songId);
-            savePlaylistToLocalStorage();
-            renderPlaylist();
-        }
-        function handleClearPlaylist() {
-            if (confirm('Tem certeza que deseja limpar toda a playlist?')) {
-                playlist = [];
-                savePlaylistToLocalStorage();
-                renderPlaylist();
-            }
-        }
-        function savePlaylistToLocalStorage() {
-            try { localStorage.setItem('musicPlaylistApp', JSON.stringify(playlist)); }
-            catch (e) { console.error("Erro ao salvar no localStorage:", e); }
-        }
-        function loadPlaylistFromLocalStorage() {
-            try {
-                const storedPlaylist = localStorage.getItem('musicPlaylistApp');
-                if (storedPlaylist) playlist = JSON.parse(storedPlaylist);
-            } catch (e) { console.error("Erro ao carregar do localStorage:", e); playlist = []; }
-        }
+          const songTitleEl = templateClone.querySelector('.song-title');
+          songTitleEl.textContent = `${songItem.songName} (${songItem.artistName})`;
+          songTitleEl.dataset.link = songItem.link;
+          songTitleEl.addEventListener('click', () => {
+            window.open(songItem.link, '_blank');
+          });
 
-        // --- Inicialização e Event Listeners ---
-        document.addEventListener('DOMContentLoaded', async () => {
-            loadPlaylistFromLocalStorage();
-            await loadAndPopulateArtists();
-            renderPlaylist();
-            artistSelect.addEventListener('change', (event) => { loadSongs(event.target.value); });
-            addToPlaylistBtn.addEventListener('click', handleAddSongToPlaylist);
-            clearPlaylistBtn.addEventListener('click', handleClearPlaylist);
-            // Listener para uploadArtistFileInput REMOVIDO
+          templateClone.querySelector('.added-by').textContent = `Adicionada por: ${songItem.userName}`;
+
+          const deleteBtn = templateClone.querySelector('.delete-song-btn');
+          deleteBtn.addEventListener('click', () => handleDeleteSongFromPlaylist(songItem.id));
+
+          playlistDisplay.appendChild(templateClone);
         });
-    </script>
+      }
+    }
+
+    async function handleAddSongToPlaylist() {
+      const userName = userNameInput.value.trim();
+      const artistName = artistSelect.value; // Nome do artista para exibição
+      const selectedSongOption = songSelect.options[songSelect.selectedIndex];
+
+      if (!userName) { alert('Por favor, digite seu nome.'); userNameInput.focus(); return; }
+      if (!artistName) { alert('Por favor, selecione um artista.'); artistSelect.focus(); return; }
+      if (!selectedSongOption || !selectedSongOption.value) { // Verifica se uma música válida foi selecionada
+        alert('Por favor, selecione uma música.');
+        songSelect.focus();
+        return;
+      }
+
+      const songId = selectedSongOption.dataset.songId; // PEGA O ID DA MÚSICA
+      const songName = selectedSongOption.value; // Nome da música para exibição
+      const songLink = selectedSongOption.dataset.link;
+
+      if (!songId) {
+        alert('Não foi possível obter o ID da música selecionada. Tente novamente.');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/playlist/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ songId, artistName, songName, songLink, userName })
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.message || "Erro ao adicionar música à playlist.");
+        }
+        await fetchPlaylist();
+      } catch (error) {
+        console.error("Erro ao adicionar música à playlist:", error);
+        alert(`Erro: ${error.message}`);
+      }
+    }
+
+    async function handleDeleteSongFromPlaylist(playlistItemId) {
+      if (!playlistItemId) {
+        console.error("ID do item da playlist inválido para exclusão.");
+        return;
+      }
+      if (confirm('Tem certeza que deseja remover esta música da playlist?')) {
+        try {
+          const response = await fetch(`/api/playlist/remove/${playlistItemId}`, {
+            method: 'DELETE'
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.message || "Erro ao remover música da playlist.");
+          }
+          await fetchPlaylist();
+        } catch (error) {
+          console.error("Erro ao remover música da playlist:", error);
+          alert(`Erro: ${error.message}`);
+        }
+      }
+    }
+
+    async function handleClearPlaylist() {
+      if (confirm('Tem certeza que deseja limpar toda a playlist?')) {
+        try {
+          const response = await fetch('/api/playlist/clear', {
+            method: 'DELETE'
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.message || "Erro ao limpar a playlist.");
+          }
+          await fetchPlaylist();
+        } catch (error) {
+          console.error("Erro ao limpar a playlist:", error);
+          alert(`Erro: ${error.message}`);
+        }
+      }
+    }
+
+    // --- Inicialização e Event Listeners ---
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadAndPopulateArtists();
+      await fetchPlaylist(); // Carrega a playlist da API na inicialização
+
+      artistSelect.addEventListener('change', (event) => {
+        loadSongs(event.target.value);
+      });
+
+      addToPlaylistBtn.addEventListener('click', handleAddSongToPlaylist);
+      clearPlaylistBtn.addEventListener('click', handleClearPlaylist);
+    });
+  </script>
 </body>
+
 </html>
