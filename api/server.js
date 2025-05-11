@@ -115,7 +115,7 @@ app.get('/api/artists/:artistName/songs', async (req, res) => {
       [artistName]
     );
     // Agora result.rows será um array de objetos como: { id: 1, name: "Musica A", link: "..." }
-    console.log(`Músicas encontradas para "${artistName}":`, result.rows);
+    // console.log(`Músicas encontradas para "${artistName}":`, result.rows);
 
     if (result.rows.length === 0) {
       console.log(`Nenhuma música encontrada no DB para "${artistName}" com a query.`);

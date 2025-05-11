@@ -37,10 +37,53 @@
     }
 
     select:focus,
-    input:focus {
+    input:focus,
+    input[type="checkbox"]:focus {
+      /* Adicionado foco para o checkbox */
       outline: 2px solid transparent;
       outline-offset: 2px;
       box-shadow: 0 0 0 2px #a78bfa;
+    }
+
+    /* Estilização customizada para o checkbox parecer um toggle */
+    #webVersionToggle {
+      appearance: none;
+      background-color: #e5e7eb;
+      /* gray-200 */
+      border-radius: 9999px;
+      display: inline-block;
+      height: 1.25rem;
+      /* h-5 */
+      width: 2.25rem;
+      /* w-9 */
+      position: relative;
+      cursor: pointer;
+      transition: background-color 0.2s ease-in-out;
+      vertical-align: middle;
+      /* Alinha melhor com o label */
+    }
+
+    #webVersionToggle::before {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 1rem;
+      /* h-4, w-4 */
+      height: 1rem;
+      background-color: white;
+      border-radius: 50%;
+      transition: transform 0.2s ease-in-out;
+    }
+
+    #webVersionToggle:checked {
+      background-color: #4f46e5;
+      /* indigo-600 */
+    }
+
+    #webVersionToggle:checked::before {
+      transform: translateX(1rem);
+      /* Move o círculo para a direita */
     }
   </style>
 </head>
@@ -79,6 +122,12 @@
       </button>
     </div>
 
+    <!-- Botão Flag "Versão WEB" -->
+    <div class="mb-4 flex items-center justify-end space-x-2">
+      <label for="webVersionToggle" class="text-sm font-medium text-gray-700 cursor-pointer">Versão WEB</label>
+      <input type="checkbox" id="webVersionToggle" class="">
+    </div>
+
     <div>
       <h2 class="text-2xl font-semibold text-gray-800 mb-4">Playlist</h2>
       <div id="playlistDisplay"
@@ -98,7 +147,7 @@
   <template id="playlistItemTemplate">
     <div
       class="playlist-item flex items-center justify-between bg-white p-3 rounded-md shadow hover:shadow-lg transition-shadow duration-150"
-      data-playlist-item-id="">
+      data-playlist-item-id=""> <!-- data-playlist-item-id já estava aqui, ótimo! -->
       <div>
         <p class="song-title font-semibold text-indigo-700 cursor-pointer hover:underline"></p>
         <p class="added-by text-xs text-gray-500"></p>
@@ -122,9 +171,12 @@
     const songSelect = document.getElementById('songSelect');
     const addToPlaylistBtn = document.getElementById('addToPlaylistBtn');
     const playlistDisplay = document.getElementById('playlistDisplay');
-    const emptyPlaylistMsg = document.getElementById('emptyPlaylistMsg'); // Já existe no HTML
+    const emptyPlaylistMsg = document.getElementById('emptyPlaylistMsg');
     const clearPlaylistBtn = document.getElementById('clearPlaylistBtn');
     const playlistItemTemplate = document.getElementById('playlistItemTemplate');
+    const webVersionToggle = document.getElementById('webVersionToggle'); // NOVO ELEMENTO
+
+    let currentPlaylistDataCache = []; // Cache para os dados da playlist da API
 
     // Carrega artistas do backend e popula o select
     async function loadAndPopulateArtists() {
@@ -174,9 +226,9 @@
 
         if (songsData && songsData.length > 0) {
           songsData.forEach(song => {
-            if (song.id && song.name && song.link) {
+            if (song.id && song.name && song.link) { // Verifica se song.id existe
               const option = document.createElement('option');
-              option.value = song.name; // O valor pode ser o nome para exibição
+              option.value = song.name;
               option.dataset.songId = song.id; // ARMAZENA O ID DA MÚSICA
               option.dataset.link = song.link;
               option.textContent = song.name;
@@ -203,8 +255,8 @@
         if (!response.ok) {
           throw new Error(`Erro ao buscar playlist: ${response.statusText}`);
         }
-        const playlistData = await response.json();
-        renderPlaylist(playlistData);
+        currentPlaylistDataCache = await response.json(); // Armazena os dados crus
+        renderPlaylist(); // Agora renderPlaylist usará currentPlaylistDataCache
       } catch (error) {
         console.error("Falha ao carregar playlist do backend:", error);
         playlistDisplay.innerHTML = ''; // Limpa itens antigos
@@ -212,29 +264,50 @@
         errorP.className = 'text-red-500';
         errorP.textContent = 'Erro ao carregar a playlist.';
         playlistDisplay.appendChild(errorP);
-        emptyPlaylistMsg.classList.add('hidden'); // Esconde a msg de 'vazio' se há erro
+        if (emptyPlaylistMsg) emptyPlaylistMsg.classList.add('hidden'); // Esconde a msg de 'vazio' se há erro
       }
     }
 
-    function renderPlaylist(currentPlaylistData) {
+    function transformLinkForWebVersion(originalLink) {
+      if (typeof originalLink !== 'string') return originalLink;
+      // Remove "imprimir.html" e tudo que vier depois do # se "imprimir.html" estiver presente
+      if (originalLink.includes("/imprimir.html")) {
+        const baseUrl = originalLink.substring(0, originalLink.indexOf("/imprimir.html"));
+        // Garante que termine com uma barra
+        return baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
+      }
+      return originalLink; // Retorna o link original se não contiver "/imprimir.html"
+    }
+
+    function renderPlaylist() { // Não precisa mais de argumento, usa a variável global
+      const currentPlaylistToRender = currentPlaylistDataCache;
+      const isWebVersion = webVersionToggle.checked;
+
       // Limpa apenas os itens de música, mantém a mensagem de vazio se existir
       const currentSongItems = playlistDisplay.querySelectorAll('.playlist-item');
       currentSongItems.forEach(item => item.remove());
 
-      if (!currentPlaylistData || currentPlaylistData.length === 0) {
-        emptyPlaylistMsg.classList.remove('hidden');
+      if (!currentPlaylistToRender || currentPlaylistToRender.length === 0) {
+        if (emptyPlaylistMsg) emptyPlaylistMsg.classList.remove('hidden');
       } else {
-        emptyPlaylistMsg.classList.add('hidden');
-        currentPlaylistData.forEach(songItem => {
+        if (emptyPlaylistMsg) emptyPlaylistMsg.classList.add('hidden');
+
+        currentPlaylistToRender.forEach(songItem => {
           const templateClone = playlistItemTemplate.content.cloneNode(true);
           const playlistItemDiv = templateClone.querySelector('.playlist-item');
-          playlistItemDiv.dataset.playlistItemId = songItem.id; // ID do item na playlist_items
+          playlistItemDiv.dataset.playlistItemId = songItem.id;
 
           const songTitleEl = templateClone.querySelector('.song-title');
           songTitleEl.textContent = `${songItem.songName} (${songItem.artistName})`;
-          songTitleEl.dataset.link = songItem.link;
+
+          let finalLink = songItem.link;
+          if (isWebVersion) {
+            finalLink = transformLinkForWebVersion(songItem.link);
+          }
+          // songTitleEl.dataset.link = finalLink; // Removido pois o link é usado diretamente no window.open
+
           songTitleEl.addEventListener('click', () => {
-            window.open(songItem.link, '_blank');
+            window.open(finalLink, '_blank'); // Abre o link (original ou transformado)
           });
 
           templateClone.querySelector('.added-by').textContent = `Adicionada por: ${songItem.userName}`;
@@ -249,22 +322,23 @@
 
     async function handleAddSongToPlaylist() {
       const userName = userNameInput.value.trim();
-      const artistName = artistSelect.value; // Nome do artista para exibição
+      const artistName = artistSelect.value;
       const selectedSongOption = songSelect.options[songSelect.selectedIndex];
 
       if (!userName) { alert('Por favor, digite seu nome.'); userNameInput.focus(); return; }
       if (!artistName) { alert('Por favor, selecione um artista.'); artistSelect.focus(); return; }
-      if (!selectedSongOption || !selectedSongOption.value) { // Verifica se uma música válida foi selecionada
-        alert('Por favor, selecione uma música.');
+      // Validação mais robusta para a música selecionada
+      if (!selectedSongOption || !selectedSongOption.value || selectedSongOption.value === "" || !selectedSongOption.dataset.songId) {
+        alert('Por favor, selecione uma música válida.');
         songSelect.focus();
         return;
       }
 
-      const songId = selectedSongOption.dataset.songId; // PEGA O ID DA MÚSICA
-      const songName = selectedSongOption.value; // Nome da música para exibição
+      const songId = selectedSongOption.dataset.songId;
+      const songName = selectedSongOption.value;
       const songLink = selectedSongOption.dataset.link;
 
-      if (!songId) {
+      if (!songId) { // Dupla verificação, embora a anterior deva pegar
         alert('Não foi possível obter o ID da música selecionada. Tente novamente.');
         return;
       }
@@ -329,7 +403,7 @@
     // --- Inicialização e Event Listeners ---
     document.addEventListener('DOMContentLoaded', async () => {
       await loadAndPopulateArtists();
-      await fetchPlaylist(); // Carrega a playlist da API na inicialização
+      await fetchPlaylist(); // Carrega e renderiza a playlist inicial
 
       artistSelect.addEventListener('change', (event) => {
         loadSongs(event.target.value);
@@ -337,6 +411,11 @@
 
       addToPlaylistBtn.addEventListener('click', handleAddSongToPlaylist);
       clearPlaylistBtn.addEventListener('click', handleClearPlaylist);
+
+      // NOVO Event Listener para o toggle "Versão WEB"
+      webVersionToggle.addEventListener('change', () => {
+        renderPlaylist(); // Re-renderiza a playlist com os links atualizados
+      });
     });
   </script>
 </body>
